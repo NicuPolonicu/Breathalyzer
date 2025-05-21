@@ -1,6 +1,5 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-#include <OneWire.h>
 #include <DallasTemperature.h>
 
 #define ONE_WIRE_BUS 7

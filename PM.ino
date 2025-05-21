@@ -6,6 +6,7 @@
 #define ONE_WIRE_BUS 7
 #define TEMP_THRESHOLD 28
 #define TEMP_RESOLUTION 11
+#define INTERRUPT_PIN 2
 
 int start, end;
 
@@ -16,12 +17,14 @@ DallasTemperature sensors(&oneWire);
 
 volatile bool manualTrigger = false;
 volatile unsigned long lastInterruptTime = 0;
-unsigned long breathCooldown = 3000;  // Start at 3000 to allow immediate first trigger
 
+// Cooldown pentru detectie respiratie
+unsigned long breathCooldown = 3000;
 
-
+// Ultima temperatura inregistrata pentru a detecta expiratie
 float lastTemp = 0;
 
+// Incalzire senzor
 void warmup() {
   for (int i = 0; i < 100; i++) {
     analogRead(A5);
@@ -29,30 +32,35 @@ void warmup() {
   }
 }
 
+
 void setup() {
   Serial.begin(9600);
   lcd.init();
   lcd.backlight();
 
-  pinMode(4, OUTPUT);   // Green
-  pinMode(10, OUTPUT);  // Yellow (PWM)
-  pinMode(12, OUTPUT);  // Red
+  pinMode(4, OUTPUT);   // Verde
+  pinMode(10, OUTPUT);  // Galben
+  pinMode(12, OUTPUT);  // Rosu
+  
+  // Activare pull-up buton + intrerupere
+  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), buttonISR, FALLING);
 
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), buttonISR, FALLING);
-
+  // Activare senzor temperatura + setare rezolutie ADC la 11 biti
   sensors.begin();
-  sensors.setResolution(TEMP_RESOLUTION); // Set DS18B20 to 11-bit
+  sensors.setResolution(TEMP_RESOLUTION);
   sensors.requestTemperatures();
   delay(200);
   lastTemp = sensors.getTempCByIndex(0);
 
-
-  lcd.setCursor(0, 0);
+  // Incalzire senzor MQ-6
   warmup();
+  // Print initial LCD
+  lcd.setCursor(0, 0);
   lcd.print("Astept...");
 }
 
+// Intrerupere buton
 void buttonISR() {
   unsigned long currentTime = millis();
   if (currentTime - lastInterruptTime > 300) {
@@ -61,6 +69,7 @@ void buttonISR() {
   }
 }
 
+// Masurare alcoolemie
 void measureAlcohol() {
   Serial.println(">>> Measuring alcohol...");
   
@@ -114,25 +123,14 @@ void measureAlcohol() {
 void loop() {
 
   sensors.requestTemperatures();
+  // Delay pt ADC temperatura
   delay(375);
   float temperature = sensors.getTempCByIndex(0);
   Serial.println(temperature);
 
-
-  // start = millis();
-  // lcd.setCursor(0, 0);
-  // lcd.print("Temp: ");
-  // lcd.print(temperature, 2);
-  // lcd.print(" C   ");
-  
-  // lcd.setCursor(0, 1);
-  // lcd.print("Alcool: ...    ");
-  // end= millis();
-  // Serial.print("2 :");
-  // Serial.println(end - start);
-
   breathCooldown += 300;
-
+  
+  // Daca avem intrerupere cu buton sau detectare expiratie
   if (manualTrigger || (breathCooldown >= 3000 && temperature - lastTemp > 0.2)) {
     breathCooldown = manualTrigger ? breathCooldown : 0;
     manualTrigger = false;

@@ -120,11 +120,13 @@ void setup() {
 
 
 // Intrerupere buton (cu debouncer)
+volatile bool manualTrigger = false;
+volatile bool buttonReady = true;
+
 ISR(INT0_vect) {
-  unsigned long currentTime = millis();
-  if (currentTime - lastInterruptTime > 300) {
+  if (buttonReady) {
     manualTrigger = true;
-    lastInterruptTime = currentTime;
+    buttonReady = false;
   }
 }
 
@@ -198,6 +200,16 @@ void loop() {
   Serial.println(temperature);
 
   breathCooldown += 300;
+
+  static uint8_t debounceCounter = 0;
+  if (!buttonReady) {
+    debounceCounter++;
+    if (debounceCounter >= 1) {  // 1×375ms = ~375ms debounce
+      buttonReady = true;
+      debounceCounter = 0;
+    }
+  }
+
   
   // Daca avem intrerupere cu buton sau detectare expiratie
   if (manualTrigger || (breathCooldown >= 3000 && temperature - lastTemp > 0.2)) {
